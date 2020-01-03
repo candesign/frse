@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Chart } from "react-google-charts";
 import "./App.css";
-let allData = require("./data.json");
+
+let allData = require("./frse.json");
 
 function App() {
   const [data, setData] = useState([]);
@@ -68,8 +69,9 @@ function App() {
         let keys = Object.keys(allData);
         let rowFKey, rowGKey, rowHKey;
         keys.map(key => {
-          if (key.includes(rowF)) {
+          if (key.includes(`${rowF} `)) {
             rowFKey = key;
+            console.log(rowF, rowFKey);
           }
           if (key.includes(rowG)) {
             rowGKey = key;
