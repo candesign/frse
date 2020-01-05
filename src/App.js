@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Chart } from "react-google-charts";
 import "./App.css";
+import axios from "axios";
 
-let allData = require("./frse.json");
+let allData = "";
 
 function App() {
   const [data, setData] = useState([]);
@@ -12,9 +13,33 @@ function App() {
   const [provinceData, setProvinceData] = useState("");
 
   useEffect(() => {
+    axios
+      .get("http://3.125.255.174/download")
+      .then(function(response) {
+        // handle success
+        allData = response.data;
+      })
+      .catch(function(error) {
+        // handle error
+        console.log(error);
+      })
+      .finally(function() {
+        allData["Całość"].map(row => {
+          const regex = /.*Polska.*/;
+          row.A = row.A.replace(regex, "PL");
+
+          const regex2 = /[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ-]*/;
+          row.A = regex2.exec(row.A)[0];
+        });
+
+        return setData(() => createGlobalData());
+      });
+  }, []);
+
+  useEffect(() => {
     if (mapResolution === "") {
-      setProvinceData("");
-      setProvince("");
+      // setProvinceData("");
+      // setProvince("");
     }
     return setData(() => createGlobalData());
   }, [sector, province, provinceData, mapResolution]);
@@ -29,6 +54,8 @@ function App() {
   }, [sector, province, mapResolution]);
 
   function createGlobalData() {
+    if (allData === "") return;
+
     let globalData = allData["Całość"];
     let constructedArray = [["Wojewodztwo", "Wnioski"]];
     let resolution;
@@ -56,12 +83,13 @@ function App() {
   }
 
   function createProvinceData() {
+    if (allData === "") return;
     let globalData = allData["Całość"];
     let constructedArray = [];
 
     globalData.map(row => {
       if (row.A === province && row.B === sector) {
-        const regex = /[A-Z]\d*/;
+        const regex = /[A-Z]\s?-?\s?\d*/;
         const rowF = regex.exec(row.F)[0];
         const rowG = regex.exec(row.G)[0];
         const rowH = regex.exec(row.H)[0];
@@ -69,9 +97,9 @@ function App() {
         let keys = Object.keys(allData);
         let rowFKey, rowGKey, rowHKey;
         keys.map(key => {
-          if (key.includes(`${rowF} `)) {
+          var trimmedKey = key.replace(/\s*?-|\s(?=\d)/, "");
+          if (trimmedKey.includes(`${rowF} `)) {
             rowFKey = key;
-            console.log(rowF, rowFKey);
           }
           if (key.includes(rowG)) {
             rowGKey = key;
@@ -96,7 +124,6 @@ function App() {
         constructedArray.push(innerArray);
       }
     });
-    console.log(constructedArray);
     return constructedArray;
   }
 
@@ -108,7 +135,6 @@ function App() {
         const selection = chart.getSelection();
         if (selection.length === 0) return;
         const region = data[selection[0].row + 1];
-        if (region[0] === "PL") return;
         setProvince(region[0]);
       }
     }
@@ -116,41 +142,69 @@ function App() {
 
   return (
     <div className="App">
+      <div className="maps-toggle">
+        <button
+          onClick={() => {
+            setMapResolution("");
+            setProvinceData("");
+            setProvince("");
+          }}
+          disabled={mapResolution === "" ? true : false}
+        >
+          Polska
+        </button>
+        <button
+          onClick={() => {
+            setMapResolution("provinces");
+            setProvinceData("");
+            setProvince("");
+          }}
+          disabled={mapResolution === "provinces" ? true : false}
+        >
+          Województwa
+        </button>
+      </div>
+
       <div className={"map-container"}>
         <Chart
           width={"100vw"}
-          height={"80vh"}
+          height={"62vw"}
           chartType="GeoChart"
           data={data}
           options={{
             region: "PL",
             resolution: mapResolution,
             legend: "none",
-            colorAxis: { colors: ["green", "blue"] }
+            colorAxis: {
+              colors: [
+                "#3366cc",
+                "#dc3912",
+                "#ff9900",
+                "#109618",
+                "#990099",
+                "#0099c6",
+                "#dd4477",
+                "#66aa00",
+                "#b82e2e",
+                "#316395",
+                "#994499",
+                "#22aa99",
+                "#aaaa11",
+                "#6633cc",
+                "#e67300",
+                "#334655"
+              ]
+            }
           }}
           mapsApiKey="AIzaSyDRQ19XrIf8WjDBz3HPrbCFcr2PoaLr-hY"
           rootProps={{ "data-testid": "1" }}
           chartEvents={chartEvents}
         />
-      </div>
-
-      <div className="maps-toggle">
-        <button
-          onClick={() => setMapResolution("")}
-          disabled={mapResolution === "" ? true : false}
-        >
-          Polska
-        </button>
-        <button
-          onClick={() => setMapResolution("provinces")}
-          disabled={mapResolution === "provinces" ? true : false}
-        >
-          Województwa
-        </button>
         {provinceData === "" ? (
           ""
         ) : (
           <button
+            className="wroc"
             onClick={() => {
               setProvinceData("");
               setProvince("");
@@ -160,6 +214,7 @@ function App() {
           </button>
         )}
       </div>
+
       <div className="sectors-toggle">
         <button
           onClick={() => setSector("Łącznie")}
@@ -205,49 +260,88 @@ function App() {
       </div>
 
       {provinceData === "" ? (
-        ""
+        <div className="info">
+          <p className="nothing-to-show">
+            Kliknij w region na mapie, aby wyświetlić szczegółowe dane.
+          </p>
+        </div>
       ) : (
         <div className="info">
-          <h3>Województwo {province}</h3>
-          <ul>
-            <li>Liczba złożonych wniosków: {provinceData[0][1]}</li>
-            <li>
-              Liczba dofinansowanych projektów (E+& PO WER):{" "}
-              {provinceData[0][2]}
-            </li>
-            <li>Dofinansowanie (E+ & PO WER, EUR): {provinceData[0][3]}</li>
-          </ul>
+          <section className="table-1">
+            {province === "PL" ? (
+              <h3>Cała Polska</h3>
+            ) : (
+              <h3>Województwo {province}</h3>
+            )}
+            {sector === "Łącznie" ? (
+              <h4>Wszystkie sektory</h4>
+            ) : (
+              <h4>Sektor: {sector}</h4>
+            )}
 
-          <h3>Liczba projektów z udziałem podmiotów z określonego kraju</h3>
-          <ul>
-            {provinceData[0][4].map(single => (
-              <li>
-                {single.A}: {single.B}
-              </li>
-            ))}
-          </ul>
+            <table>
+              <tbody>
+                <tr>
+                  <td>Liczba złożonych wniosków</td>
+                  <td>{provinceData[0][1]}</td>
+                </tr>
+                <tr>
+                  <td>Liczba dofinansowanych projektów (E+& PO WER)</td>
+                  <td>{provinceData[0][2]}</td>
+                </tr>
+                <tr>
+                  <td>Dofinansowanie (E+ & PO WER)</td>
+                  <td>{provinceData[0][3]} EUR</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
 
-          <h3>
-            Liczba mobilności z Polski/województwa do Poszczególnych krajów
-          </h3>
-          <ul>
-            {provinceData[0][5].map(single => (
-              <li>
-                {single.A}: {single.B}
-              </li>
-            ))}
-          </ul>
+          <section className="table-2">
+            <h4>Liczba projektów z udziałem podmiotów z określonego kraju</h4>
+            <table>
+              <tbody>
+                {provinceData[0][4].map(single => (
+                  <tr>
+                    <td>{single.A}</td>
+                    <td>{single.B}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
 
-          <h3>
-            Liczba mobilności z poszczególnych krajów do Polski/województwa
-          </h3>
-          <ul>
-            {provinceData[0][6].map(single => (
-              <li>
-                {single.A}: {single.B}
-              </li>
-            ))}
-          </ul>
+          <section className="table-3">
+            <h4>
+              Liczba mobilności z Polski/województwa do Poszczególnych krajów
+            </h4>
+            <table>
+              <tbody>
+                {provinceData[0][5].map(single => (
+                  <tr>
+                    <td>{single.A}</td>
+                    <td>{single.B}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="table-4">
+            <h4>
+              Liczba mobilności z poszczególnych krajów do Polski/województwa
+            </h4>
+            <table>
+              <tbody>
+                {provinceData[0][6].map(single => (
+                  <tr>
+                    <td>{single.A}</td>
+                    <td>{single.B}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
         </div>
       )}
     </div>
