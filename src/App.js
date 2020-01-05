@@ -14,7 +14,7 @@ function App() {
 
   useEffect(() => {
     axios
-      .get("http://3.125.255.174/download")
+      .get("https://xlsfrse.adpdev.click/download")
       .then(function(response) {
         // handle success
         allData = response.data;
