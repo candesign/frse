@@ -18,12 +18,6 @@ function App() {
       .then(function(response) {
         // handle success
         allData = response.data;
-      })
-      .catch(function(error) {
-        // handle error
-        console.log(error);
-      })
-      .finally(function() {
         allData["Całość"].map(row => {
           const regex = /.*Polska.*/;
           row.A = row.A.replace(regex, "PL");
@@ -33,6 +27,10 @@ function App() {
         });
 
         return setData(() => createGlobalData());
+      })
+      .catch(function(error) {
+        // handle error
+        console.log(error);
       });
   }, []);
 
